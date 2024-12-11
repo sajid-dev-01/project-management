@@ -7,6 +7,7 @@ import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 import tailwind from "eslint-plugin-tailwindcss";
+import unusedImports from "eslint-plugin-unused-imports";
 import globals from "globals";
 import tslint from "typescript-eslint";
 
@@ -33,7 +34,10 @@ export default [
     },
   },
   {
-    plugins: { "simple-import-sort": simpleImportSort },
+    plugins: {
+      "simple-import-sort": simpleImportSort,
+      "unused-imports": unusedImports,
+    },
     rules: {
       "simple-import-sort/imports": [
         2,
@@ -50,6 +54,16 @@ export default [
             ["^\\."],
             ["^.+\\.s?css$"],
           ],
+        },
+      ],
+      "unused-imports/no-unused-imports": "error",
+      "unused-imports/no-unused-vars": [
+        "warn",
+        {
+          vars: "all",
+          varsIgnorePattern: "^_",
+          args: "after-used",
+          argsIgnorePattern: "^_",
         },
       ],
     },
