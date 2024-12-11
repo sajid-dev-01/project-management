@@ -86,3 +86,29 @@ export const useProjectAnalytics = (projectId: TableID) => {
     },
   });
 };
+
+export const useDeleteProject = () => {
+  return useMutation<
+    InferResponseType<
+      (typeof client.api.projects)[":projectId"]["$delete"],
+      200
+    >,
+    Error,
+    InferRequestType<(typeof client.api.projects)[":projectId"]["$delete"]>
+  >({
+    mutationFn: async ({ param }) => {
+      const res = await client.api.projects[":projectId"].$delete({ param });
+      if (!res.ok) throw await res.json();
+
+      return res.json();
+    },
+    onSuccess: ({ data }) => {
+      toast.success("Project deleted");
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["project", data.id] });
+    },
+    onError: () => {
+      toast.error("Failed to delete project");
+    },
+  });
+};

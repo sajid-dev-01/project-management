@@ -91,6 +91,7 @@ export const TasksCalendar = ({ data }: TasksCalendarProps) => {
   };
 
   return (
+    // @ts-expect-error
     <Calendar
       localizer={localizer}
       date={value}

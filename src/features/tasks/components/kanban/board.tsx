@@ -44,11 +44,13 @@ function hasDraggableData<T extends Active | Over>(
 }
 
 type Props = {
-  tasks: PopulatedTask[];
+  data: PopulatedTask[];
   onChange: (tasks: PopulatedTask[]) => void;
 };
 
-export const TaskKanbanBoard = ({ tasks: initialTasks, onChange }: Props) => {
+let updatedTasks: PopulatedTask[] = [];
+
+export const TaskKanbanBoard = ({ data: initialTasks, onChange }: Props) => {
   const dndContext = useDndContext();
 
   const [columns, setColumns] = useState<TaskStatus[]>(
@@ -61,8 +63,13 @@ export const TaskKanbanBoard = ({ tasks: initialTasks, onChange }: Props) => {
   const columnsId = useMemo(() => columns.map((col) => col), [columns]);
 
   const sensors = useSensors(
-    useSensor(MouseSensor),
-    useSensor(TouchSensor),
+    useSensor(MouseSensor, {
+      // Require the mouse to move by 10 pixels before activating
+      activationConstraint: { distance: 10 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
+    }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -92,7 +99,7 @@ export const TaskKanbanBoard = ({ tasks: initialTasks, onChange }: Props) => {
     setActiveTask(null);
 
     if (!over || !hasDraggableData(active)) return;
-    onChange(tasks);
+    onChange(updatedTasks);
     if (active.id === over.id) return;
 
     const isActiveAColumn = active.data.current?.type === "Column";
@@ -115,20 +122,41 @@ export const TaskKanbanBoard = ({ tasks: initialTasks, onChange }: Props) => {
     const isActiveATask = active.data.current?.type === "Task";
     if (!isActiveATask) return;
 
+    // prepare for minimal update
+    updatedTasks = [];
+
     const isOverATask = overData?.type === "Task";
     // dropping a Task over another Task
     if (isActiveATask && isOverATask) {
       setTasks((tasks) => {
+        let newTasks: PopulatedTask[] = [];
+
         const activeIndex = tasks.findIndex((t) => t.id === active.id);
         const overIndex = tasks.findIndex((t) => t.id === over.id);
         const activeTask = tasks[activeIndex];
         const overTask = tasks[overIndex];
         if (activeTask && overTask && activeTask.status !== overTask.status) {
           activeTask.status = overTask.status;
-          return arrayMove(tasks, activeIndex, overIndex - 1);
+          newTasks = arrayMove(tasks, activeIndex, overIndex - 1).map(
+            (i, idx) => ({ ...i, position: tasks.length - idx })
+          );
         }
 
-        return arrayMove(tasks, activeIndex, overIndex);
+        newTasks = arrayMove(tasks, activeIndex, overIndex).map((i, idx) => ({
+          ...i,
+          position: tasks.length - idx,
+        }));
+
+        tasks.forEach((t) => {
+          const matched = newTasks.find((nt) => nt.id === t.id);
+          if (!matched) return;
+
+          if (matched.position !== t.position) {
+            updatedTasks.push(matched);
+          }
+        });
+
+        return newTasks;
       });
     }
 
@@ -140,7 +168,21 @@ export const TaskKanbanBoard = ({ tasks: initialTasks, onChange }: Props) => {
         const activeTask = tasks[activeIndex];
         if (activeTask) {
           activeTask.status = over.id as TaskStatus;
-          return arrayMove(tasks, activeIndex, activeIndex);
+          const newTasks = arrayMove(tasks, activeIndex, activeIndex).map(
+            (i, idx) => ({ ...i, position: tasks.length - idx })
+          );
+          // push after activeTask updated
+          updatedTasks.push(activeTask);
+          tasks.forEach((t) => {
+            const matched = newTasks.find((nt) => nt.id === t.id);
+            if (!matched) return;
+
+            if (matched.position !== t.position) {
+              updatedTasks.push(matched);
+            }
+          });
+
+          return newTasks;
         }
         return tasks;
       });

@@ -25,8 +25,9 @@ interface Props {
 
 export const TaskViewSwitcher = ({ hideProjectFilter }: Props) => {
   const workspaceId = useWorkspaceId();
-  const [{ ...filters }] = useTaskFilters();
+  const [filters] = useTaskFilters();
   const [view, setView] = useQueryState("task-view", { defaultValue: "table" });
+
   const { data: tasks, isLoading } = useTasks({ ...filters, workspaceId });
 
   const { open: openCreateModal } = useCreateTaskModal();
@@ -34,14 +35,7 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: Props) => {
 
   const onKanbanChange = useCallback(
     (tasks: PopulatedTask[]) => {
-      bulkUpdate({
-        json: {
-          tasks: tasks.map((i, idx) => ({
-            ...i,
-            position: tasks.length - idx,
-          })),
-        },
-      });
+      bulkUpdate({ json: { tasks } });
     },
     [bulkUpdate]
   );
@@ -66,8 +60,8 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: Props) => {
             </TabsTrigger>
           </TabsList>
           <Button
-            className="w-full md:w-auto"
             size="sm"
+            className="w-full md:w-auto"
             onClick={() => openCreateModal()}
           >
             <PlusIcon className="size-4" />
@@ -88,10 +82,7 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: Props) => {
             </TabsContent>
             <TabsContent className="mt-0" value="kanban">
               <div className="grid">
-                <TaskKanbanBoard
-                  tasks={tasks ?? []}
-                  onChange={onKanbanChange}
-                />
+                <TaskKanbanBoard data={tasks ?? []} onChange={onKanbanChange} />
               </div>
             </TabsContent>
             <TabsContent className="mt-0 h-full pb-4" value="calender">

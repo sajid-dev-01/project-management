@@ -1,8 +1,3 @@
-import { eq } from "drizzle-orm";
-
-import { db } from ".";
-import * as dbTables from "./schema";
-
 import "dotenv/config";
 
 async function main() {

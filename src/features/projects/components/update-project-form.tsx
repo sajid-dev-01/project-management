@@ -1,14 +1,13 @@
 "use client";
 
-import { z } from "zod";
-import Image from "next/image";
-import React, { useRef } from "react";
-import { useForm } from "react-hook-form";
-import { useRouter } from "next/navigation";
-
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeftIcon, ImageIcon } from "lucide-react";
+import { ArrowLeftIcon } from "lucide-react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Form,
@@ -18,85 +17,58 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { updateProjectSchema } from "../schemas";
-import { DottedSeparator } from "@/components/dotted-separator";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui-extension/alert";
+import { ButtonLoading } from "@/components/ui-extension/button-loading";
+import { UploadDropzone } from "@/components/upload/upload-thing";
 import { cn } from "@/lib/utils";
-import { Project } from "../types";
-import { useUpdateProject } from "../api/use-update-project";
-import { useConfirm } from "@/hooks/use-confirm";
-import { useDeleteProject } from "../api/use-delete-project";
+import { Project } from "@/types";
+
+import { useDeleteProject, useUpdateProject } from "../api";
+import { updateProjectSchema } from "../schemas";
 
 interface Props {
   onCancel?: () => void;
   initialValue: Project;
 }
 
-export const UpdateProjectForm = ({
-  onCancel,
-  initialValue,
-}: Props) => {
+export const UpdateProjectForm = ({ onCancel, initialValue }: Props) => {
+  const router = useRouter();
+  const confirm = useConfirm();
+
   const { mutate, isPending } = useUpdateProject();
   const { mutate: deleteProject, isPending: isDeletingProject } =
     useDeleteProject();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const router = useRouter();
-  const [DeleteDialog, confirmDelete] = useConfirm(
-    "Delete Project",
-    "This action can not be undone.",
-    "destructive"
-  );
 
   const form = useForm<z.infer<typeof updateProjectSchema>>({
     resolver: zodResolver(updateProjectSchema),
-    defaultValues: {
-      ...initialValue,
-      image: initialValue.imageUrl ?? "",
-    },
+    defaultValues: { ...initialValue, image: initialValue.image ?? "" },
   });
 
   const onSubmit = (values: z.infer<typeof updateProjectSchema>) => {
-    const finalValues = {
-      ...values,
-      image: values.image instanceof File ? values.image : "",
-    };
-
-    mutate({ form: finalValues, param: { projectId: initialValue.$id } });
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      form.setValue("image", file);
-    }
+    mutate({
+      json: {
+        ...values,
+        image: values.image ?? "",
+      },
+      param: { projectId: initialValue.id },
+    });
   };
 
   const handleDelete = async () => {
-    const ok = await confirmDelete();
-    if (!ok) return;
+    const isConfirm = await confirm({
+      title: "Are you sure to delete?",
+    });
 
-    deleteProject(
-      {
-        param: {
-          projectId: initialValue.$id,
-        },
-      },
-      {
-        onSuccess: () => {
-          window.location.href = `/workspaces/${initialValue.workspaceId}`;
-        },
-      }
-    );
+    if (isConfirm) {
+      deleteProject({ param: { projectId: initialValue.id } });
+    }
   };
 
   return (
     <div className="flex flex-col gap-4">
-      <DeleteDialog />
-      <Card className="w-full h-full border-none shadow-none">
-        <CardHeader className="flex flex-row items-center gap-x-4 p-7 space-7-0">
+      <Card className="size-full border-none shadow-none">
+        <CardHeader className="space-7-0 flex flex-row items-center gap-x-4 p-7">
           <Button
             size={"sm"}
             variant={"secondary"}
@@ -105,20 +77,17 @@ export const UpdateProjectForm = ({
                 ? onCancel
                 : () =>
                     router.push(
-                      `/workspaces/${initialValue.workspaceId}/projects/${initialValue.$id}`
+                      `/workspaces/${initialValue.workspaceId}/projects/${initialValue.id}`
                     )
             }
           >
-            <ArrowLeftIcon className="size-4 mr-2" />
+            <ArrowLeftIcon className="mr-2 size-4" />
             Back
           </Button>
           <CardTitle className="text-xl font-bold">
             {initialValue.name}
           </CardTitle>
         </CardHeader>
-        <div className="px-7">
-          <DottedSeparator />
-        </div>
         <CardContent className="p-7">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -140,79 +109,34 @@ export const UpdateProjectForm = ({
                   control={form.control}
                   name="image"
                   render={({ field }) => (
-                    <div className="flex flex-col gap-y-2">
-                      <div className="flex items-center gap-x-5">
-                        {field.value ? (
-                          <div className="size-[72px] relative rounded-md overflow-hidden">
-                            <Image
-                              alt="Logo"
-                              fill
-                              className="object-cover"
-                              src={
-                                field.value instanceof File
-                                  ? URL.createObjectURL(field.value)
-                                  : field.value
-                              }
-                            />
-                          </div>
-                        ) : (
-                          <Avatar className="size-[72px]">
-                            <AvatarFallback>
-                              <ImageIcon className="size-[36px] text-neutral-400" />
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
-                        <div className="flex flex-col">
-                          <p className="text-sm">Project Icon</p>
-                          <p className="text-sm text-muted-foreground">
-                            JPG, PNG, SVG or JPEG, max 1mb
-                          </p>
-                          <input
-                            type="file"
-                            className="hidden"
-                            accept=".jpg, .png, .jpeg, .svg"
-                            ref={inputRef}
-                            onChange={handleImageChange}
-                            disabled={isPending}
+                    <FormItem>
+                      <FormLabel>Image</FormLabel>
+                      <FormControl className="rounded-md border border-dashed">
+                        {initialValue.image ? (
+                          <Image
+                            src={initialValue.image}
+                            alt="workspace image"
+                            height={60}
+                            width={60}
                           />
-                          {field.value ? (
-                            <Button
-                              type="button"
-                              disabled={isPending}
-                              variant={"destructive"}
-                              size={"xs"}
-                              className="w-fit mt-2"
-                              onClick={() => {
-                                field.onChange("");
-                                if (inputRef.current) {
-                                  inputRef.current.value = "";
-                                }
-                              }}
-                            >
-                              Remove Button
-                            </Button>
-                          ) : (
-                            <Button
-                              type="button"
-                              disabled={isPending}
-                              variant={"tertiary"}
-                              size={"xs"}
-                              className="w-fit mt-2"
-                              onClick={() => inputRef.current?.click()}
-                            >
-                              Upload Image
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                        ) : (
+                          <UploadDropzone
+                            className="border-border"
+                            endpoint={"workspaceImage"}
+                            onClientUploadComplete={(res) => {
+                              console.log({ res });
+                              field.onChange(res[0].url);
+                            }}
+                          />
+                        )}
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
                 />
               </div>
-              <DottedSeparator className="py-7" />
               <div className="flex items-center justify-between">
                 <Button
-                  type="button"
                   size="lg"
                   variant="secondary"
                   onClick={onCancel}
@@ -222,25 +146,28 @@ export const UpdateProjectForm = ({
                   Cancel
                 </Button>
 
-                <Button type="submit" size="lg" variant="primary">
-                  Save Changes
-                </Button>
+                <ButtonLoading
+                  type="submit"
+                  loading={isPending}
+                  className="w-full"
+                >
+                  update
+                </ButtonLoading>
               </div>
             </form>
           </Form>
         </CardContent>
       </Card>
-      <Card className="w-full h-full border-none shadow-none">
+      <Card className="size-full border-none shadow-none">
         <CardContent className="p-7">
           <div className="flex flex-col">
             <div className="font-bold">Danger Zone</div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               Deleting a project is irreversible and will remove all associated
               data
             </p>
-            <DottedSeparator className="py-7" />
             <Button
-              className="mt-6 w-fit ml-auto"
+              className="ml-auto mt-6 w-fit"
               size={"sm"}
               variant={"destructive"}
               type="button"

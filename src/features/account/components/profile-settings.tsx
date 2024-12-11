@@ -48,6 +48,7 @@ const ProfileSettings: React.FC = () => {
     },
   });
 
+  // TODO: implement delete image features
   const { execute: deleteImage, isPending: isDeleting } = useAction(
     deleteProfileImageAction,
     {
